@@ -9,6 +9,7 @@ export interface CreateShopInput {
   phone: string;
   email: string;
   ownerId: string;
+  status?: ShopStatus;
 }
 
 export interface UpdateShopInput {

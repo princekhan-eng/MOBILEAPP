@@ -13,12 +13,13 @@ export class AuthService {
     }
 
     const passwordHash = await hashPassword(input.password);
-    const role = input.role || 'CUSTOMER';
+    // Enforce safe roles only from registration
+    const role: UserRole = input.role === 'SHOP_ADMIN' ? 'SHOP_ADMIN' : 'CUSTOMER';
 
     const user = await authRepository.createUser({
-      email: input.email,
+      email: input.email.toLowerCase().trim(),
       passwordHash,
-      name: input.name,
+      name: input.name.trim(),
       role,
       phone: input.phone,
     });
@@ -43,7 +44,7 @@ export class AuthService {
   }
 
   async login(input: LoginInput) {
-    const user = await authRepository.findUserByEmail(input.email);
+    const user = await authRepository.findUserByEmail(input.email.toLowerCase().trim());
     if (!user) {
       throw new Error(AUTH_ERRORS.INVALID_CREDENTIALS);
     }
@@ -70,6 +71,15 @@ export class AuthService {
         shopId: user.shopId,
       },
     };
+  }
+
+  async getCurrentUser(userId: string) {
+    const user = await authRepository.findUserById(userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+    const { passwordHash, ...safeUser } = user;
+    return safeUser;
   }
 }
 

@@ -1,11 +1,12 @@
 import { prisma } from '@/lib/prisma';
-import { Package, AlertTriangle } from 'lucide-react';
+import { AdjustStockModal } from '@/components/shop-admin/AdjustStockModal';
 
 export default async function ShopInventoryPage() {
   let inventoryItems: any[] = [];
   try {
     inventoryItems = await prisma.inventory.findMany({
       include: { product: true },
+      orderBy: { updatedAt: 'desc' },
     });
   } catch (e) {
     inventoryItems = [];
@@ -24,14 +25,16 @@ export default async function ShopInventoryPage() {
             <tr>
               <th className="p-4">Product Name</th>
               <th className="p-4">Quantity In Stock</th>
-              <th className="p-4">Low Stock Alert Level</th>
+              <th className="p-4">Low Stock Threshold</th>
               <th className="p-4">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-800">
             {inventoryItems.length === 0 ? (
               <tr>
-                <td colSpan={4} className="p-8 text-center text-slate-500">No inventory tracked yet.</td>
+                <td colSpan={4} className="p-8 text-center text-slate-500">
+                  No inventory tracked yet.
+                </td>
               </tr>
             ) : (
               inventoryItems.map((inv) => (
@@ -40,7 +43,11 @@ export default async function ShopInventoryPage() {
                   <td className="p-4 font-bold text-amber-400">{inv.quantity}</td>
                   <td className="p-4 text-slate-400">{inv.lowStockThreshold}</td>
                   <td className="p-4">
-                    <button className="text-xs px-3 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200">Adjust Stock</button>
+                    <AdjustStockModal
+                      productId={inv.productId}
+                      productName={inv.product?.name || 'Device'}
+                      currentStock={inv.quantity}
+                    />
                   </td>
                 </tr>
               ))

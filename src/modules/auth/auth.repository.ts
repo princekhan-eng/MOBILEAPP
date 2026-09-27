@@ -8,11 +8,35 @@ export class AuthRepository {
     });
   }
 
+  async findUserById(id: string) {
+    return prisma.user.findUnique({
+      where: { id },
+      include: {
+        shop: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            status: true,
+          },
+        },
+        ownedShops: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            status: true,
+          },
+        },
+      },
+    });
+  }
+
   async createUser(data: {
     email: string;
     passwordHash: string;
     name: string;
-    role: any;
+    role: string;
     phone?: string;
     shopId?: string;
   }) {

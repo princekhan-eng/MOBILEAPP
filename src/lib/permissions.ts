@@ -2,6 +2,7 @@ import { UserRole } from '@/types/global';
 import { PERMISSIONS } from '@/constants/permissions';
 
 const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
+  PLATFORM_ADMIN: Object.values(PERMISSIONS),
   SUPER_ADMIN: Object.values(PERMISSIONS),
   SHOP_ADMIN: [
     PERMISSIONS.MANAGE_PRODUCTS,

@@ -9,17 +9,34 @@ async function main() {
   // Hash password
   const passwordHash = await bcrypt.hash('password123', 10);
 
-  // 1. Create Super Admin User
+  const superAdminEmail = (process.env.SUPER_ADMIN_EMAIL || 'princekhan27012007@gmail.com').toLowerCase().trim();
+  const superAdminPassword = process.env.SUPER_ADMIN_PASSWORD || 'PrinceKhan@Admin2026!';
+  const superAdminHash = await bcrypt.hash(superAdminPassword, 10);
+
+  // Remove any obsolete super admins to ensure princekhan27012007@gmail.com is the ONLY super admin
+  await prisma.user.deleteMany({
+    where: {
+      role: 'SUPER_ADMIN',
+      email: { not: superAdminEmail },
+    },
+  });
+
+  // 1. Create Exclusive Super Admin User
   const superAdmin = await prisma.user.upsert({
-    where: { email: 'admin@mobilenet.com' },
-    update: {},
+    where: { email: superAdminEmail },
+    update: {
+      passwordHash: superAdminHash,
+      role: 'SUPER_ADMIN',
+      name: 'Prince Khan (Super Admin)',
+    },
     create: {
-      email: 'admin@mobilenet.com',
-      passwordHash,
-      name: 'Super Administrator',
+      email: superAdminEmail,
+      passwordHash: superAdminHash,
+      name: 'Prince Khan (Super Admin)',
       role: 'SUPER_ADMIN',
     },
   });
+  console.log(`Exclusive Super Admin configured: ${superAdmin.email}`);
 
   // 2. Create Sample Vendor User & Shop
   const shopOwner = await prisma.user.upsert({

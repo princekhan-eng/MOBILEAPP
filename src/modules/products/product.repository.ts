@@ -3,11 +3,24 @@ import { CreateProductInput, UpdateProductInput } from './product.types';
 import { slugify } from '@/utils/slug';
 
 export class ProductRepository {
-  async findAll(skip = 0, limit = 10, filters: { shopId?: string; categoryId?: string; brand?: string; search?: string; minPrice?: number; maxPrice?: number } = {}) {
+  async findAll(
+    skip = 0,
+    limit = 10,
+    filters: {
+      shopId?: string;
+      categoryId?: string;
+      brand?: string;
+      search?: string;
+      minPrice?: number;
+      maxPrice?: number;
+      status?: string;
+    } = {}
+  ) {
     const where: any = {};
 
     if (filters.shopId) where.shopId = filters.shopId;
     if (filters.categoryId) where.categoryId = filters.categoryId;
+    if (filters.status) where.status = filters.status;
     if (filters.brand) where.brand = { contains: filters.brand };
     if (filters.search) {
       where.OR = [
@@ -29,7 +42,7 @@ export class ProductRepository {
         take: limit,
         include: {
           category: true,
-          shop: { select: { id: true, name: true, slug: true } },
+          shop: { select: { id: true, name: true, slug: true, status: true } },
           inventory: true,
         },
         orderBy: { createdAt: 'desc' },
@@ -40,14 +53,20 @@ export class ProductRepository {
     return { products, total };
   }
 
-  async findByIdOrSlug(identifier: string) {
+  async findByIdOrSlug(identifier: string, scopedShopId?: string | null) {
+    const where: any = {
+      OR: [{ id: identifier }, { slug: identifier }],
+    };
+
+    if (scopedShopId) {
+      where.shopId = scopedShopId;
+    }
+
     return prisma.product.findFirst({
-      where: {
-        OR: [{ id: identifier }, { slug: identifier }],
-      },
+      where,
       include: {
         category: true,
-        shop: true,
+        shop: { select: { id: true, name: true, slug: true, status: true } },
         inventory: true,
       },
     });
@@ -67,14 +86,29 @@ export class ProductRepository {
           create: {
             shopId: data.shopId,
             quantity: initialStock || 0,
+            lowStockThreshold: 5,
           },
         },
       },
-      include: { inventory: true },
+      include: {
+        inventory: true,
+        shop: { select: { id: true, name: true, slug: true } },
+        category: true,
+      },
     });
   }
 
-  async update(id: string, data: UpdateProductInput) {
+  async update(id: string, data: UpdateProductInput, scopedShopId?: string | null) {
+    // 1. Verify product ownership if scopedShopId is passed
+    if (scopedShopId) {
+      const existing = await prisma.product.findFirst({
+        where: { id, shopId: scopedShopId },
+      });
+      if (!existing) {
+        throw new Error('Product not found or access denied');
+      }
+    }
+
     const updateData: any = { ...data };
     if (data.images) updateData.images = JSON.stringify(data.images);
     if (data.specs) updateData.specs = JSON.stringify(data.specs);
@@ -83,11 +117,25 @@ export class ProductRepository {
     return prisma.product.update({
       where: { id },
       data: updateData,
-      include: { inventory: true },
+      include: {
+        inventory: true,
+        shop: { select: { id: true, name: true, slug: true } },
+        category: true,
+      },
     });
   }
 
-  async delete(id: string) {
+  async delete(id: string, scopedShopId?: string | null) {
+    // 1. Verify product ownership if scopedShopId is passed
+    if (scopedShopId) {
+      const existing = await prisma.product.findFirst({
+        where: { id, shopId: scopedShopId },
+      });
+      if (!existing) {
+        throw new Error('Product not found or access denied');
+      }
+    }
+
     return prisma.product.delete({ where: { id } });
   }
 }

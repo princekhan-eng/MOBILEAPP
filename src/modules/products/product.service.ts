@@ -5,17 +5,40 @@ export class ProductService {
   async getProducts(
     page = 1,
     limit = 10,
-    filters?: { shopId?: string; categoryId?: string; brand?: string; search?: string; minPrice?: number; maxPrice?: number }
+    filters?: {
+      shopId?: string;
+      categoryId?: string;
+      brand?: string;
+      search?: string;
+      minPrice?: number;
+      maxPrice?: number;
+      status?: string;
+    }
   ) {
     const skip = (page - 1) * limit;
     const { products, total } = await productRepository.findAll(skip, limit, filters);
-    
-    // Parse JSON specs & images safely
-    const formatted = products.map((p) => ({
-      ...p,
-      images: JSON.parse(p.images || '[]'),
-      specs: JSON.parse(p.specs || '{}'),
-    }));
+
+    // Safely parse JSON specs & images
+    const formatted = products.map((p) => {
+      let images: string[] = [];
+      let specs: Record<string, any> = {};
+      try {
+        images = JSON.parse(p.images || '[]');
+      } catch {
+        images = [];
+      }
+      try {
+        specs = JSON.parse(p.specs || '{}');
+      } catch {
+        specs = {};
+      }
+
+      return {
+        ...p,
+        images,
+        specs,
+      };
+    });
 
     return {
       products: formatted,
@@ -28,13 +51,27 @@ export class ProductService {
     };
   }
 
-  async getProduct(identifier: string) {
-    const product = await productRepository.findByIdOrSlug(identifier);
+  async getProduct(identifier: string, scopedShopId?: string | null) {
+    const product = await productRepository.findByIdOrSlug(identifier, scopedShopId);
     if (!product) throw new Error('Product not found');
+
+    let images: string[] = [];
+    let specs: Record<string, any> = {};
+    try {
+      images = JSON.parse(product.images || '[]');
+    } catch {
+      images = [];
+    }
+    try {
+      specs = JSON.parse(product.specs || '{}');
+    } catch {
+      specs = {};
+    }
+
     return {
       ...product,
-      images: JSON.parse(product.images || '[]'),
-      specs: JSON.parse(product.specs || '{}'),
+      images,
+      specs,
     };
   }
 
@@ -42,12 +79,12 @@ export class ProductService {
     return productRepository.create(input);
   }
 
-  async updateProduct(id: string, input: UpdateProductInput) {
-    return productRepository.update(id, input);
+  async updateProduct(id: string, input: UpdateProductInput, scopedShopId?: string | null) {
+    return productRepository.update(id, input, scopedShopId);
   }
 
-  async deleteProduct(id: string) {
-    return productRepository.delete(id);
+  async deleteProduct(id: string, scopedShopId?: string | null) {
+    return productRepository.delete(id, scopedShopId);
   }
 }
 

@@ -1,29 +1,37 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { successResponse, errorResponse } from '@/lib/response';
+import { requireShopAccess } from '@/lib/auth-guard';
 
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const shopId = searchParams.get('shopId') || undefined;
+    const requestedShopId = searchParams.get('shopId') || undefined;
+
+    const auth = requireShopAccess(req, requestedShopId);
+    if (!auth.success) {
+      return errorResponse(auth.message, auth.status);
+    }
+
+    const effectiveShopId = auth.context.isPlatformAdmin ? requestedShopId : auth.context.shopId;
 
     const [salesAggregate, inventoryCount, productsCount] = await Promise.all([
       prisma.sale.aggregate({
-        where: shopId ? { shopId } : {},
+        where: effectiveShopId ? { shopId: effectiveShopId } : {},
         _sum: { totalAmount: true },
         _count: true,
       }),
       prisma.inventory.count({
-        where: shopId ? { shopId } : {},
+        where: effectiveShopId ? { shopId: effectiveShopId } : {},
       }),
       prisma.product.count({
-        where: shopId ? { shopId } : {},
+        where: effectiveShopId ? { shopId: effectiveShopId } : {},
       }),
     ]);
 
     const report = {
       generatedAt: new Date().toISOString(),
-      shopId: shopId || 'PLATFORM_WIDE',
+      shopId: effectiveShopId || 'PLATFORM_WIDE',
       totalRevenue: salesAggregate._sum.totalAmount || 0,
       totalSalesCount: salesAggregate._count || 0,
       totalInventoryItems: inventoryCount,

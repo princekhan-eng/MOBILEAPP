@@ -1,4 +1,4 @@
-export type UserRole = 'SUPER_ADMIN' | 'SHOP_ADMIN' | 'SHOP_EMPLOYEE' | 'CUSTOMER';
+export type UserRole = 'PLATFORM_ADMIN' | 'SUPER_ADMIN' | 'SHOP_ADMIN' | 'SHOP_EMPLOYEE' | 'CUSTOMER';
 
 export type ShopStatus = 'PENDING' | 'ACTIVE' | 'SUSPENDED';
 

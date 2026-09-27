@@ -20,7 +20,10 @@ export class ShopRepository {
         where,
         skip,
         take: limit,
-        include: { owner: { select: { id: true, name: true, email: true } }, _count: { select: { products: true, employees: true } } },
+        include: {
+          owner: { select: { id: true, name: true, email: true } },
+          _count: { select: { products: true, employees: true } },
+        },
         orderBy: { createdAt: 'desc' },
       }),
       prisma.shop.count({ where }),
@@ -36,19 +39,44 @@ export class ShopRepository {
       },
       include: {
         owner: { select: { id: true, name: true, email: true } },
-        products: { take: 10, where: { status: 'ACTIVE' } },
+        products: { take: 20, where: { status: 'ACTIVE' } },
         subscriptions: { where: { status: 'ACTIVE' }, take: 1 },
       },
     });
   }
 
   async create(data: CreateShopInput) {
-    const slug = slugify(data.name);
-    return prisma.shop.create({
-      data: {
-        ...data,
-        slug,
-      },
+    let baseSlug = slugify(data.name);
+    let slug = baseSlug;
+
+    return prisma.$transaction(async (tx) => {
+      // Ensure unique slug
+      const existingSlug = await tx.shop.findUnique({ where: { slug } });
+      if (existingSlug) {
+        slug = `${baseSlug}-${Date.now().toString(36)}`;
+      }
+
+      const shop = await tx.shop.create({
+        data: {
+          ...data,
+          slug,
+          status: data.status || 'ACTIVE',
+        },
+      });
+
+      // Update owner to associate with shop, preserving platform admins
+      const owner = await tx.user.findUnique({ where: { id: data.ownerId } });
+      if (owner && owner.role !== 'SUPER_ADMIN' && owner.role !== 'PLATFORM_ADMIN') {
+        await tx.user.update({
+          where: { id: data.ownerId },
+          data: {
+            shopId: shop.id,
+            role: 'SHOP_ADMIN',
+          },
+        });
+      }
+
+      return shop;
     });
   }
 

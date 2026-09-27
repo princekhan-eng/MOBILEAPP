@@ -11,10 +11,12 @@ export function successResponse<T>(data: T, message?: string, status = 200, meta
   return NextResponse.json(body, { status });
 }
 
-export function errorResponse(error: string, status = 400) {
+export function errorResponse(message: string, status = 400, errors?: any) {
   const body: ApiResponse = {
     success: false,
-    error,
+    message,
+    error: message,
+    errors,
   };
   return NextResponse.json(body, { status });
 }
